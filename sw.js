@@ -1,6 +1,6 @@
 // Guarda a app no tablet para abrir mesmo sem internet (os eventos sincronizam quando a ligação voltar).
-const CACHE = "calendario-v1";
-const FILES = ["./", "./index.html", "./firebase-config.js", "./manifest.webmanifest", "./icon-192.png", "./icon-512.png"];
+const CACHE = "calendario-v2";
+const FILES = ["./", "./index.html", "./firebase-config.js", "./manifest.webmanifest", "./icon-192-v2.png", "./icon-512-v2.png"];
 
 self.addEventListener("install", e => {
   e.waitUntil(caches.open(CACHE).then(c => c.addAll(FILES)).then(() => self.skipWaiting()));
