@@ -1,0 +1,17 @@
+{
+  "name": "Calendário da Família",
+  "short_name": "Calendário",
+  "description": "O calendário da Susana, do Daniel, da Isabella e da Cherry.",
+  "lang": "pt-PT",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#eef5fb",
+  "theme_color": "#9fd0f3",
+  "icons": [
+    { "src": "icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}

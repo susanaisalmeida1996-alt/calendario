@@ -1,0 +1,57 @@
+CALENDÁRIO DA FAMÍLIA — COMO INSTALAR (cerca de 20 minutos, só uma vez)
+=========================================================================
+
+Vai precisar de: um computador (é mais fácil do que no tablet), a sua conta Google e a sua conta GitHub.
+Ficheiros: esta pasta "app-calendario" e o ficheiro "importar-eventos.json" (que NÃO vai para o GitHub).
+
+
+PARTE 1 — FIREBASE (onde ficam guardados os eventos)
+----------------------------------------------------
+1. Abra https://console.firebase.google.com e entre com a sua conta Google.
+2. "Criar um projeto" (ou "Adicionar projeto"). Nome: calendario-familia. Pode desligar o Google Analytics. Criar.
+3. Na página do projeto, toque no ícone </> ("Web") para adicionar uma app.
+   Nome: Calendário. NÃO marque "Firebase Hosting". Registar app.
+4. Aparece um bloco "const firebaseConfig = { ... }". Copie os valores (apiKey, authDomain, projectId,
+   storageBucket, messagingSenderId, appId) para o ficheiro firebase-config.js desta pasta,
+   no lugar de cada "COLE_AQUI". Guarde o ficheiro.
+5. No mesmo ficheiro, em "emailsPermitidos", ponha o seu email Google e o do Daniel.
+6. No menu da esquerda: Criação (Build) › Authentication › Começar.
+   Em "Método de início de sessão", escolha Google › Ativar › escolha o seu email de suporte › Guardar.
+7. No menu: Criação (Build) › Firestore Database › Criar base de dados.
+   Localização: europe-west (por exemplo europe-southwest1, Madrid). Modo: produção. Criar.
+8. Ainda no Firestore, separador "Regras": apague tudo, cole o conteúdo do ficheiro firestore.rules,
+   troque os dois emails pelos vossos (os mesmos do passo 5) e toque em Publicar.
+
+
+PARTE 2 — GITHUB (onde fica a app)
+----------------------------------
+9.  Abra https://github.com, entre na sua conta, toque em "+" › New repository.
+    Nome: calendario. Visibilidade: Public (obrigatório na conta gratuita). Create repository.
+10. Na página do repositório: "uploading an existing file". Arraste TODO o conteúdo da pasta app-calendario
+    (index.html, firebase-config.js, manifest.webmanifest, sw.js e os 4 ícones .png). Commit changes.
+    Não envie o ficheiro importar-eventos.json: tem os horários da família e o repositório é público.
+11. Settings › Pages › Source: "Deploy from a branch" › Branch: main, pasta / (root) › Save.
+    Espere 1–2 minutos. O endereço da app aparece no topo: https://O-SEU-UTILIZADOR.github.io/calendario/
+12. Volte ao Firebase › Authentication › Definições (Settings) › Domínios autorizados › Adicionar domínio:
+    O-SEU-UTILIZADOR.github.io
+
+
+PARTE 3 — NO TABLET ANDROID
+---------------------------
+13. Abra o Chrome e vá a https://O-SEU-UTILIZADOR.github.io/calendario/
+14. Toque em "Entrar com Google" e escolha a sua conta.
+15. Menu ⋮ › "Instalar app" (ou "Adicionar ao ecrã principal"). Fica um ícone "Calendário" com a família,
+    que abre em ecrã inteiro, sem barra do navegador e sem o Claude.
+16. Importar os eventos que já criou (só uma vez): copie o ficheiro importar-eventos.json para o tablet
+    (por email ou Google Drive), abra no Chrome https://O-SEU-UTILIZADOR.github.io/calendario/#importar
+    e escolha o ficheiro.
+17. No telemóvel do Daniel: passos 13 a 15 com a conta Google dele (o email dele tem de estar nos passos 5 e 8).
+
+
+DÚVIDAS FREQUENTES
+------------------
+- "Falta configurar o Firebase": o firebase-config.js ainda tem "COLE_AQUI". Edite-o no GitHub (abra o ficheiro › lápis › Commit).
+- "Não foi possível entrar (auth/unauthorized-domain)": falta o passo 12.
+- A conta não tem acesso: o email não está nos passos 5 e 8 (têm de ser iguais nos dois sítios).
+- Mudanças na app: quando eu lhe der uma versão nova, basta substituir o index.html no GitHub.
+- Custos: com o uso de uma família, o Firebase e o GitHub Pages ficam no escalão gratuito.
