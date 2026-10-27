@@ -258,6 +258,34 @@ h1,h2{font-weight:500!important}
 .cell .ev .emo{position:absolute;top:-14px;right:-6px;width:22px;height:22px;border-radius:50%;background:var(--surface);box-shadow:0 1px 4px rgba(31,45,61,.18);display:grid;place-items:center;font-size:12px;line-height:1}
 .cell .ev .emo-img{padding:2px;object-fit:contain}
 .ev b,.day-ev .time,.clock,.toast b{font-weight:500!important}
+
+/* Telemóvel: dias compactos com pontos; os eventos leem-se na lista do dia */
+.filters-row{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:12px}
+.filters-row .filters{margin-bottom:0}
+.toggle-cats{border:1px solid var(--line);background:var(--surface);border-radius:999px;padding:4px 12px;font-size:13px;color:var(--muted)}
+.toggle-cats[aria-expanded="true"]{background:var(--accent-soft);color:var(--accent-strong)}
+#typeFilters{margin-top:-4px}
+@media (max-width:760px){
+  .cal-nav{gap:6px}
+  .cal-nav h2{font-size:20px;white-space:nowrap}
+  .cal .card{padding:12px}
+  .month{gap:4px}
+  .month .hd{font-size:11px;letter-spacing:.03em}
+  /* Estilo calendário do iPhone: etiquetas finas com o nome do evento */
+  .main{padding-left:max(8px,env(safe-area-inset-left,0px));padding-right:max(8px,env(safe-area-inset-right,0px))}
+  .cal .card{padding:10px 6px}
+  .month{gap:2px}
+  .cell{min-height:96px;gap:2px;padding:3px 1px 4px;align-items:stretch;border-radius:8px}
+  .cell .n{width:24px;height:24px;font-size:13px;margin:0 auto 1px}
+  .cell .dots{display:none!important}
+  .cell .ev{display:block!important;font-size:10px;line-height:1.2;padding:2px 2px;border-radius:4px;text-align:left;white-space:normal;overflow:hidden;box-shadow:none;letter-spacing:-.01em;align-self:stretch;width:auto}
+  .cell .ev .emo,.cell .ev b{display:none!important}
+  .cell .ev .evt{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;white-space:normal;overflow:hidden;word-break:break-word;overflow-wrap:anywhere;hyphens:auto}
+  .cell .more{display:block!important;font-size:10px;line-height:1.2;text-align:center}
+  .filters .chip{font-size:13px;padding:3px 9px}
+  .typechip{font-size:13px;padding:3px 9px}
+  .day-ev{padding:12px}
+}
 @media (prefers-reduced-motion:no-preference){.toast{animation:pop .25s ease-out}@keyframes pop{from{transform:translateY(8px);opacity:.4}to{transform:none;opacity:1}}}
 </style>
 
@@ -361,8 +389,8 @@ h1,h2{font-weight:500!important}
             <button class="btn" id="todayBtn">Hoje</button>
             <button class="iconbtn" id="nextMonth" aria-label="Mês seguinte"><svg><use href="#i-right"/></svg></button>
           </div>
-          <div class="filters" id="calFilters" aria-label="Mostrar eventos de"></div>
-          <div class="filters" id="typeFilters" aria-label="Tipos de evento"></div>
+          <div class="filters-row"><div class="filters" id="calFilters" aria-label="Mostrar eventos de"></div><button type="button" class="toggle-cats" id="typeToggle" aria-expanded="false" aria-controls="typeFilters">Categorias ▾</button></div>
+          <div class="filters" id="typeFilters" aria-label="Tipos de evento" hidden></div>
           <div class="month" id="monthGrid"></div>
         </div>
         <div class="card">
@@ -747,7 +775,14 @@ $("#monthGrid").addEventListener("click", e => {
   if (e.target.closest("[data-edit]")) return;
   const c = e.target.closest("[data-day]"); if (!c) return;
   S.selected = c.dataset.day; renderCalendar();
+  if (window.matchMedia("(max-width:760px)").matches) $("#dayLabel").closest(".card").scrollIntoView({ behavior: "smooth", block: "start" });
 });
+(() => {
+  const btn = $("#typeToggle"), box = $("#typeFilters");
+  const set = open => { box.hidden = !open; btn.setAttribute("aria-expanded", String(open)); btn.textContent = open ? "Categorias ▴" : "Categorias ▾"; };
+  set(store.get("casa.catsOpen", false));
+  btn.onclick = () => { const open = box.hidden; set(open); store.set("casa.catsOpen", open); };
+})();
 $("#monthGrid").addEventListener("keydown", e => { if ((e.key === "Enter" || e.key === " ") && e.target.dataset.day) { e.preventDefault(); S.selected = e.target.dataset.day; renderCalendar(); } });
 $("#typeFilters").addEventListener("click", e => {
   const b = e.target.closest("[data-tfilter]"); if (!b) return;
