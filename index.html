@@ -1104,13 +1104,14 @@ setInterval(() => { checkAlerts(); if (S.view === "inicio") renderHome(); }, 300
 /* ---------- arranque ---------- */
 $("#famHero").src = IMG.familia; $("#famHero").hidden = false;
 function wire() {
-  subscribe("events", d => { S.events = d; render(); });
+  subscribe("events", d => { S.events = d; render(); scheduleWidget(); });
   subscribe("tasks", d => { S.tasks = d; render(); });
   subscribe("shop", d => { S.shop = d; render(); });
   subscribe("meals", d => { S.meals = Object.fromEntries(d.map(({ id, ...v }) => [id, v])); render(); });
   subscribe("budget", d => { S.budget = d; render(); });
   subscribe("settings", d => {
     const fam = d.find(x => x.id === "family"), bud = d.find(x => x.id === "budget");
+    const wk = d.find(x => x.id === "widget"); S.widgetKey = (wk && wk.key) || ""; S.settingsLoaded = true; scheduleWidget();
     S.members = (fam && Array.isArray(fam.members)) ? fam.members : []; S.limits = (bud && bud.limits) || {};
     FAMILY.color = (fam && COLORS[fam.familyColor]) ? fam.familyColor : "lilas";
     if (S.view !== "familia") draftMembers = null;
@@ -1122,7 +1123,41 @@ route();
   DB = await new Promise(r => window.addEventListener("fb-ready", e => r(e.detail), { once: true }));
   S.online = !!DB; setStatus(); wire();
   if (location.hash === "#importar" && DB) openImport();
+  if (location.hash === "#widget" && DB) setTimeout(openWidgetInfo, 3500);
+  setInterval(scheduleWidget, 60 * 60 * 1000);
 })();
+/* ---------- Widget: resumo das próximas 2 semanas num endereço secreto ---------- */
+const WEMO = { creche: "🧸", aniversario: "🎂", saude: "🩺", trabalho: "💼", lazer: "🎒", feriado: "🏖️", casa: "🏠", cherry: "🐶", outro: "" };
+const WSPORT = { natacao: "🏊‍♀️", pilates: "🧘‍♀️", tenis: "🎾", futebol: "⚽" };
+let widgetTimer = null, lastWidget = "";
+function scheduleWidget() { clearTimeout(widgetTimer); widgetTimer = setTimeout(writeWidget, 2500); }
+function newKey() { const a = new Uint8Array(18); crypto.getRandomValues(a); return Array.from(a, b => "abcdefghijklmnopqrstuvwxyz0123456789"[b % 36]).join(""); }
+function widgetSummary() {
+  const from = new Date(), map = eventsBetween(from, addDays(from, 13), false);
+  return { gen: new Date().toISOString(), days: Object.keys(map).sort().map(k => ({ d: k, ev: map[k].map(ev => {
+    const t = normType(ev), sp = t === "desporto" ? sportOf(ev) : null;
+    const i = t === "desporto" ? (WSPORT[sp[0]] || (sp[2].startsWith("img:") ? "🏅" : sp[2])) : (WEMO[t] ?? "");
+    const p = person(ev.member || "familia");
+    return { n: ev.title, t: ev.allDay ? "" : (ev.time || ""), e: ev.allDay ? "" : (ev.end || ""), c: COLORS[p.color] || COLORS.azul, dc: DOTS[p.color] || DOTS.azul, i, p: p.name };
+  }) })) };
+}
+async function writeWidget() {
+  if (!DB || !S.settingsLoaded) return;
+  if (!S.widgetKey) { const key = newKey(); S.widgetKey = key; await put("settings", "widget", { key }); }
+  const sum = widgetSummary(), sig = JSON.stringify(sum.days);
+  if (sig === lastWidget) return; lastWidget = sig;
+  await put("widget", S.widgetKey, { json: JSON.stringify(sum), updated: Date.now() });
+}
+function openWidgetInfo() {
+  const url = location.origin + location.pathname.replace(/index\.html$/, "") + "widget.html#k=" + S.widgetKey;
+  $("#modalRoot").innerHTML = `<div class="overlay" id="ov"><div class="modal"><h2>Link do widget</h2>
+    <p class="muted" style="margin:0">Use este link na app AnyWidget. Não o partilhe: quem o tiver consegue ver os eventos das próximas duas semanas.</p>
+    <input type="text" id="wUrl" readonly value="${esc(url)}">
+    <div class="actions"><button type="button" class="btn" id="wClose">Fechar</button><button type="button" class="btn primary" id="wCopy">Copiar link</button></div></div></div>`;
+  $("#wCopy").onclick = async () => { try { await navigator.clipboard.writeText(url); $("#wCopy").textContent = "Copiado"; } catch { $("#wUrl").select(); } };
+  $("#wClose").onclick = () => { closeModal(); history.replaceState(null, "", location.pathname); };
+  if (!S.widgetKey) { $("#wUrl").value = "A preparar… feche e volte a abrir esta janela daqui a uns segundos."; }
+}
 /* Importar eventos de um ficheiro .json (uso único, ao passar para esta app). */
 function openImport() {
   $("#modalRoot").innerHTML = `<div class="overlay" id="ov"><div class="modal"><h2>Importar eventos</h2>

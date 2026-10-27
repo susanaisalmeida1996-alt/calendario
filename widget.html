@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="pt-PT">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Semana da Família</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500&display=swap">
+<style>
+/* Widget quadrado: os 7 dias em linhas; tudo escala com o tamanho do widget (vmin). */
+:root{--bg:#eef5fb;--card:#ffffff;--ink:#1f3047;--muted:#5b6f86;--accent:#2f6fa6;--line:#dbe8f4;--today:#d8ebfa}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%;background:var(--bg)}
+body{font-family:"Montserrat",system-ui,sans-serif;color:var(--ink);display:grid;place-items:center}
+.w{width:100vmin;height:100vmin;background:var(--card);border-radius:7vmin;padding:5vmin 5vmin 4vmin;display:flex;flex-direction:column;gap:2vmin;overflow:hidden}
+header{display:flex;align-items:baseline;justify-content:space-between;gap:2vmin}
+h1{margin:0;font-size:6vmin;font-weight:500;letter-spacing:-.01em}
+.upd{font-size:3.2vmin;color:var(--muted);white-space:nowrap}
+.days{flex:1;display:grid;grid-template-rows:repeat(7,1fr);gap:1.2vmin;min-height:0}
+.day{display:grid;grid-template-columns:13vmin minmax(0,1fr);align-items:center;gap:2vmin;border-radius:3.5vmin;padding:0 2vmin;min-height:0}
+.day.today{background:var(--today)}
+.dl{display:flex;flex-direction:column;line-height:1}
+.dl .wd{font-size:3.2vmin;color:var(--muted);text-transform:uppercase;letter-spacing:.04em}
+.dl .dn{font-size:5.6vmin;font-weight:500}
+.today .dl .wd,.today .dl .dn{color:var(--accent)}
+.evs{display:flex;gap:1.5vmin;min-width:0;overflow:hidden}
+.ev{display:flex;align-items:center;gap:1.2vmin;border-radius:2.4vmin;padding:1vmin 2vmin;min-width:0;flex:0 1 auto;color:#1f2d3d;font-size:3.7vmin;white-space:nowrap}
+.ev .i{font-size:4.2vmin;line-height:1;flex:none}
+.ev .t{font-weight:500;font-variant-numeric:tabular-nums;flex:none}
+.ev .n{min-width:0;overflow:hidden;text-overflow:ellipsis}
+.more{font-size:3.4vmin;color:var(--muted);align-self:center;flex:none}
+.none{font-size:3.4vmin;color:#9aabbd}
+.msg{margin:auto;text-align:center;color:var(--muted);font-size:4vmin;padding:6vmin}
+</style>
+</head>
+<body>
+<div class="w">
+  <header><h1>Esta semana</h1><span class="upd" id="upd"></span></header>
+  <div class="days" id="out"><p class="msg">A carregar…</p></div>
+</div>
+<script>
+const PROJECT = "calendariofamilia-d5846";
+const L = "pt-PT", pad = n => String(n).padStart(2, "0");
+const ymd = d => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+const parse = s => { const [y, m, d] = s.split("-").map(Number); return new Date(y, m - 1, d); };
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+const key = new URLSearchParams(location.hash.slice(1)).get("k") || new URLSearchParams(location.search).get("k");
+const out = document.getElementById("out");
+const fWd = new Intl.DateTimeFormat(L, { weekday: "short" });
+
+async function load() {
+  if (!key) { out.innerHTML = `<p class="msg">Falta o código do widget no link.</p>`; return; }
+  try {
+    const r = await fetch(`https://firestore.googleapis.com/v1/projects/${PROJECT}/databases/(default)/documents/widget/${encodeURIComponent(key)}`, { cache: "no-store" });
+    if (!r.ok) throw new Error(r.status);
+    render(JSON.parse((await r.json()).fields.json.stringValue));
+  } catch (e) { out.innerHTML = `<p class="msg">Sem ligação. Tente daqui a pouco.</p>`; }
+}
+function render(data) {
+  const today = ymd(new Date());
+  const days = data.days.filter(d => d.d >= today).slice(0, 7);
+  const chip = ev => `<span class="ev" style="background:${esc(ev.c)}">${ev.i ? `<span class="i">${esc(ev.i)}</span>` : ""}${ev.t ? `<span class="t">${esc(ev.t)}</span>` : ""}<span class="n">${esc(ev.n)}</span></span>`;
+  out.innerHTML = days.map(d => {
+    const dt = parse(d.d), shown = d.ev.slice(0, 2), extra = d.ev.length - shown.length;
+    return `<div class="day${d.d === today ? " today" : ""}"><div class="dl"><span class="wd">${d.d === today ? "Hoje" : ["Dom","Seg","Ter","Qua","Qui","Sex","Sáb"][dt.getDay()]}</span><span class="dn">${dt.getDate()}</span></div>
+      <div class="evs">${shown.length ? shown.map(chip).join("") : `<span class="none">—</span>`}${extra > 0 ? `<span class="more">+${extra}</span>` : ""}</div></div>`;
+  }).join("");
+  const n = new Date(); document.getElementById("upd").textContent = `${pad(n.getHours())}:${pad(n.getMinutes())}`;
+}
+load();
+setInterval(load, 10 * 60 * 1000);
+</script>
+</body>
+</html>
