@@ -509,7 +509,7 @@ h1,h2{font-weight:500!important}
           <div class="card-head"><h2>Como usar no tablet</h2></div>
           <ul class="list small">
             <li class="check"><span class="t"><b>Modo ecrã</b>: mostra relógio, semana, refeições e tarefas em grande. Ideal para deixar o tablet num suporte na cozinha.</span></li>
-            <li class="check"><span class="t"><b>Alertas</b>: aparecem no ecrã e tocam um aviso enquanto a app estiver aberta. Toque uma vez em qualquer sítio para permitir o som.</span></li>
+            <li class="check"><span class="t"><b>Alertas</b>: chegam como notificação a cada aparelho onde as ativou (toque no sino para ativar). Com a app aberta também tocam um aviso.</span></li>
             <li class="check"><span class="t"><b>Partilha</b>: os dados ficam guardados online. Quem abrir o mesmo link vê e edita a mesma informação.</span></li>
           </ul>
         </div>
@@ -1082,8 +1082,41 @@ function showToast({ title, text, key, plain }) {
   $("#toasts").appendChild(el);
   if (plain) setTimeout(() => el.remove(), 6000);
 }
+/* Notificações do sistema (chegam com a app fechada). */
+const isIOS = /iPhone|iPad|iPod/.test(navigator.userAgent) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+const installed = matchMedia("(display-mode: standalone)").matches || navigator.standalone === true;
+async function pushState() {
+  if (!DB || !DB.push) return "off";
+  if (isIOS && !installed) return "ios-install";
+  if (!(await DB.push.supported())) return "unsupported";
+  return Notification.permission; // "default" | "granted" | "denied"
+}
+function pushCard(title, text, btnLabel, onBtn) {
+  $("#toasts").querySelector(".pushask")?.remove();
+  const el = document.createElement("div"); el.className = "toast pushask"; el.setAttribute("role", "status");
+  el.innerHTML = `<span class="ic"><svg><use href="#i-bell"/></svg></span><div class="tx"><b>${esc(title)}</b><span class="small">${esc(text)}</span>
+    <div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap">${btnLabel ? `<button class="btn primary" type="button" data-go>${esc(btnLabel)}</button>` : ""}<button class="btn" type="button" data-no>${btnLabel ? "Agora não" : "OK"}</button></div></div>`;
+  el.querySelector("[data-no]").onclick = () => { el.remove(); store.set("casa.pushAsked", true); };
+  if (btnLabel) el.querySelector("[data-go]").onclick = () => onBtn(el);
+  $("#toasts").appendChild(el);
+}
+async function offerPush(fromBell) {
+  const st = await pushState();
+  if (st === "granted") { if (fromBell) showToast({ title: "Notificações ligadas", text: "Este aparelho recebe os alertas mesmo com a app fechada.", key: "p", plain: true }); return; }
+  if (st === "ios-install") { if (fromBell) pushCard("Notificações no iPhone", "Primeiro adicione a app ao ecrã principal (Partilhar › Adicionar ao ecrã principal) e abra-a a partir do ícone.", "", null); return; }
+  if (st === "denied") { if (fromBell) pushCard("Notificações bloqueadas", "Foram recusadas neste aparelho. Ative-as nas definições do telemóvel/tablet, em Notificações › Calendário.", "", null); return; }
+  if (st !== "default") { if (fromBell && st === "unsupported") showToast({ title: "Notificações", text: "Ainda não estão configuradas ou este navegador não as suporta.", key: "p", plain: true }); return; }
+  pushCard("Receber os alertas neste aparelho?", "Os avisos (ex.: 30 min antes) aparecem como notificação, mesmo com a app fechada.", "Ativar", async el => {
+    el.querySelector("[data-go]").textContent = "A ativar…";
+    try {
+      const r = await DB.push.enable(); el.remove(); store.set("casa.pushAsked", true);
+      showToast(r === "granted" ? { title: "Notificações ligadas", text: "Pronto! Os alertas vão chegar a este aparelho.", key: "p", plain: true } : { title: "Notificações", text: "Não foi dada autorização.", key: "p", plain: true });
+    } catch (e) { el.remove(); showToast({ title: "Não foi possível ativar", text: "Tente outra vez daqui a pouco (" + (e.code || e.message) + ").", key: "p", plain: true }); }
+  });
+}
+function askPush() { if (!store.get("casa.pushAsked", false)) offerPush(false); }
 $("#bellBtn").onclick = () => {
-  $("#toasts").innerHTML = ""; shown.clear();
+  $("#toasts").innerHTML = ""; shown.clear(); offerPush(true);
   if (!activeAlerts().length) showToast({ title: "Sem alertas", text: "Não há alertas ativos de momento.", key: "none", plain: true });
   checkAlerts();
 };
@@ -1124,6 +1157,7 @@ route();
   S.online = !!DB; setStatus(); wire();
   if (location.hash === "#importar" && DB) openImport();
   if (location.hash === "#widget" && DB) setTimeout(openWidgetInfo, 3500);
+  if (DB && DB.push) { DB.push.refresh(); setTimeout(askPush, 4000); }
   setInterval(scheduleWidget, 60 * 60 * 1000);
 })();
 /* ---------- Widget: resumo das próximas 2 semanas num endereço secreto ---------- */
@@ -1198,7 +1232,9 @@ if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js").catc
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
 import { getAuth, GoogleAuthProvider, signInWithPopup, signInWithRedirect, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 import { initializeFirestore, persistentLocalCache, persistentMultipleTabManager, collection, doc, setDoc, deleteDoc, onSnapshot, getDocs, writeBatch } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
-import { firebaseConfig, emailsPermitidos } from "./firebase-config.js";
+import { getMessaging, getToken, isSupported } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-messaging.js";
+import * as cfg from "./firebase-config.js";
+const { firebaseConfig, emailsPermitidos } = cfg;
 
 const gate = document.getElementById("gate"), msg = document.getElementById("gateMsg"), btn = document.getElementById("gateBtn");
 document.getElementById("gateImg").src = document.getElementById("famHero").src;
@@ -1216,6 +1252,24 @@ if (!firebaseConfig.apiKey || firebaseConfig.apiKey === "COLE_AQUI") {
       onSnapshot: (next, err) => onSnapshot(collection(fs, c), s => next({ docs: s.docs.map(d => ({ id: d.id, data: () => d.data() })) }), err),
       doc: id => ({ set: body => setDoc(doc(fs, c, id), body), delete: () => deleteDoc(doc(fs, c, id)) })
     })
+  };
+  /* Notificações no ecrã bloqueado: guarda o "endereço" deste aparelho para o envio automático. */
+  const vapidKey = cfg.vapidKey && cfg.vapidKey !== "COLE_AQUI" ? cfg.vapidKey : "";
+  const saveToken = async () => {
+    const reg = await navigator.serviceWorker.ready;
+    const token = await getToken(getMessaging(app), { vapidKey, serviceWorkerRegistration: reg });
+    if (!token) throw new Error("sem token");
+    await setDoc(doc(fs, "tokens", token), { email: auth.currentUser?.email || "", ua: navigator.userAgent.slice(0, 200), updated: Date.now() });
+    return token;
+  };
+  adapter.push = {
+    supported: async () => !!vapidKey && "Notification" in window && "serviceWorker" in navigator && await isSupported().catch(() => false),
+    enable: async () => {
+      const p = await Notification.requestPermission();
+      if (p !== "granted") return p;
+      await saveToken(); return "granted";
+    },
+    refresh: async () => { if (vapidKey && "Notification" in window && Notification.permission === "granted" && await isSupported().catch(() => false)) await saveToken().catch(e => console.warn("push", e)); }
   };
   const provider = new GoogleAuthProvider();
   const signIn = async () => {
